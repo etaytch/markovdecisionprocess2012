@@ -1,0 +1,8 @@
+C:\Projects\MarkovDecisionProcess.2012\markovdecisionprocess2012\bin\Debug\MarkovDecisionProcess.exe
+C:\Projects\MarkovDecisionProcess.2012\markovdecisionprocess2012\bin\Debug\MarkovDecisionProcess.pdb
+C:\Projects\MarkovDecisionProcess.2012\markovdecisionprocess2012\obj\Debug\ResolveAssemblyReference.cache
+C:\Projects\MarkovDecisionProcess.2012\markovdecisionprocess2012\obj\Debug\MarkovDecisionProcess.RaceViewer.resources
+C:\Projects\MarkovDecisionProcess.2012\markovdecisionprocess2012\obj\Debug\GenerateResource-ResGen.read.1.tlog
+C:\Projects\MarkovDecisionProcess.2012\markovdecisionprocess2012\obj\Debug\GenerateResource-ResGen.write.1.tlog
+C:\Projects\MarkovDecisionProcess.2012\markovdecisionprocess2012\obj\Debug\MarkovDecisionProcess.exe
+C:\Projects\MarkovDecisionProcess.2012\markovdecisionprocess2012\obj\Debug\MarkovDecisionProcess.pdb
