@@ -31,12 +31,15 @@ namespace MarkovDecisionProcess
                     Action a = p.GetAction(s);
                     r += Math.Pow(gamma, i) * s.Reward(a);
                     i++;
+                    /*
                     Random rand = new Random();
                     int count=0;
                     foreach(State succ in s.Successors(a))
                         count++;
                     int position = rand.Next(0, count);
                     s = s.Successors(a).ElementAt(position);
+                     */
+                    s=s.Apply(a);
                 }
                 for (int k = 0; k < i;k++ )
                 {

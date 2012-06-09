@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Planning
+namespace MarkovDecisionProcess
 {
 
     class PriorityQueue<T, V> where V : IComparable
@@ -27,6 +27,12 @@ namespace Planning
             T item = _list[_list.Keys[0]];
             _list.RemoveAt(0);
             return item;
+        }
+
+        public V topPriority()
+        {
+            T item = _list[_list.Keys[0]];            
+            return _list.Keys[0].First;
         }
 
         public Boolean isEmpty() 
@@ -68,11 +74,11 @@ namespace Planning
         {
             if (x.First.CompareTo(y.First) < 0)
             {
-                return -1;
+                return 1;
             }
             else if (x.First.CompareTo(y.First) > 0)
             {
-                return 1;
+                return -1;
             }
             else
             {
