@@ -14,44 +14,39 @@ namespace MarkovDecisionProcess
         public abstract State StartState{ get; }
         public abstract bool IsGoalState(State s);
         public double DiscountFactor { get; protected set; }
+        public double gamma = 0.99;
+
         public double ComputeAverageDiscountedReward(Policy p, int cTrials, int cStepsPerTrial)
+
         {
             Debug.WriteLine("Started computing ADR");
-            double dSumRewards = 0.0;
-            double gamma = 0.1;
+            double dSumRewards = 0.0;            
             double ARD = 0.0;
             for (int j = 0; j < cTrials; j++ )
             {
                 State s = StartState;
                 double r = 0;
-                int i = 0;
-                int stepCounter=0;
-                while(!IsGoalState(s) && (stepCounter<cStepsPerTrial))
+                int i = 0;                
+                while(!IsGoalState(s) && (i<cStepsPerTrial))
                 {
                     Action a = p.GetAction(s);
+                    if (a == null)
+                        break;
                     r += Math.Pow(gamma, i) * s.Reward(a);
                     i++;
-                    /*
-                    Random rand = new Random();
-                    int count=0;
-                    foreach(State succ in s.Successors(a))
-                        count++;
-                    int position = rand.Next(0, count);
-                    s = s.Successors(a).ElementAt(position);
-                     */
+                    
                     s=s.Apply(a);
                     if (s == null)
                         break;
-                }
-                for (int k = 0; k < i;k++ )
-                {
-                    ARD+=(Math.Pow(gamma,i)*r);
-                }
+                }                
+                ARD+=r;                
             }
-            ARD = (1/cTrials)*ARD;
+            dSumRewards = (ARD / cTrials);
 
             Debug.WriteLine("\nDone computing ADR");
             return dSumRewards;
-        }
+        }            
     }
+
+
 }

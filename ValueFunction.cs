@@ -8,18 +8,6 @@ using System.Windows.Forms;
 
 namespace MarkovDecisionProcess
 {
-    public class QSAPair<T, U> {
-    public QSAPair() {
-    }
-
-    public QSAPair(T first, U second) {
-        this.First = first;
-        this.Second = second;
-    }
-
-    public T First { get; set; }
-    public U Second { get; set; }
-    };
 
     class ValueFunction : Policy
     {
@@ -31,12 +19,11 @@ namespace MarkovDecisionProcess
         private Dictionary<State, List<State>> preds;
         public double MaxValue { get; private set; }
         public double MinValue { get; private set; }
-        public double gamma { get; private set; }
+        
 
         public ValueFunction(Domain d)
         {            
-            m_dDomain = d;
-            gamma = 0.5;
+            m_dDomain = d;            
             MaxValue = 0.0;
             MinValue = 0.0;
             bestActions = new Dictionary<State, Action>();            
@@ -54,38 +41,29 @@ namespace MarkovDecisionProcess
             return bestActions[s];
         }
 
-        public QSAPair<double,Action> update(State s, bool useGlobal = false, double globalReward = 0)
-        {
-            QSAPair<double, Action> ans = new QSAPair<double, Action>();
+        public double update(State s)
+        {            
             Action maxAction = null;
+            double ans=0.0;
             double maxQsa = Double.MinValue;
             foreach (Action a in m_dDomain.Actions)
             {
-
-                double qsa;// = s.Reward(a);
-                if (useGlobal)
-                    qsa = globalReward;
-                else
-                    qsa = s.Reward(a);
+                double qsa = s.Reward(a);                    
                 double sig = 0.0;
                 foreach (State sTag in s.Successors(a))
                 {
                     sig += s.TransitionProbability(a, sTag) * V[sTag];
                 }
-                qsa += gamma * sig;
-                if (Math.Abs(qsa - V[s]) >= maxQsa)
+                qsa += m_dDomain.gamma * sig;
+                if (qsa > maxQsa)
                 {
-                    maxQsa = Math.Abs(qsa - V[s]);
+                    maxQsa = qsa;
                     maxAction = a;
                 }
-            }
-            V[s] = maxQsa;
-            //if (maxQsa > MaxValue)
-            //    MaxValue = maxQsa;
+            }            
             bestActions[s] = maxAction;
-            //return MaxValue;
-            ans.First = maxQsa;
-            ans.Second = maxAction;
+            ans = Math.Abs(maxQsa - V[s]);
+            V[s] = maxQsa;              
             return ans;
         }
 
@@ -97,7 +75,7 @@ namespace MarkovDecisionProcess
             
             bestActions = new Dictionary<State, Action>();
             V = new Dictionary<State, Double>();
-            MaxValue = 0.0;
+            
             foreach (State s in m_dDomain.States)
             {
                 V[s] = 0.0;
@@ -105,17 +83,18 @@ namespace MarkovDecisionProcess
             }
             do
             {
+                MaxValue = Double.MinValue;
                 foreach (State s in m_dDomain.States)
                 {
                     cUpdates++;
-                    double deltaS = update(s).First;
-                    if (MaxValue < deltaS)
+                    double deltaS = update(s);
+                    if (deltaS > MaxValue)
                     {
                         MaxValue = deltaS;
                     }
                 }
             }
-            while (MaxValue < dEpsilon);
+            while (MaxValue > dEpsilon);
 
 
             tsExecutionTime = DateTime.Now - dtBefore;
@@ -146,28 +125,32 @@ namespace MarkovDecisionProcess
             bestActions = new Dictionary<State, Action>();
             V = new Dictionary<State, Double>();
             MaxValue = 0.0;
+            double globalReward = getMaxGlobalReward();
             foreach (State st in m_dDomain.States)
             {
-                V[st] = 0.0;
+                V[st] = globalReward;// 0.0;
                 bestActions[st] = null;
             }
 
-            double globalReward = getMaxGlobalReward();
-            State s = m_dDomain.StartState;
-            Stack<State> stack = new Stack<State>();
-            while(!m_dDomain.IsGoalState(s))
+            for (int i = 0; i < cTrials ;i++ )
             {
-                Action optimalAction = update(s/*, true, globalReward*/).Second;
-                stack.Push(s);
-                s = s.Apply(optimalAction);
-            }
-            while(stack.Count>0)
-            {
-                s = stack.Pop();
-                update(s);
-            }
-
-            //your code here
+                State s = m_dDomain.StartState;
+                Stack<State> stack = new Stack<State>();
+                while (!m_dDomain.IsGoalState(s))
+                {
+                    cUpdates++;
+                    update(s);                    
+                    Action optimalAction = bestActions[s];
+                    stack.Push(s);                    
+                    s = s.Apply(optimalAction);
+                }
+                while (stack.Count > 0)
+                {
+                    cUpdates++;
+                    s = stack.Pop();
+                    update(s);
+                }
+            }            
             tsExecutionTime = DateTime.Now - dtBefore;
             Debug.WriteLine("\nFinished RTDP");
         }
@@ -210,9 +193,7 @@ namespace MarkovDecisionProcess
                 bestActions[s] = null;
             }
 
-
-            preds = initPreds();
-            //PriorityQueue<State, double> pq = new PriorityQueue<State, double>();
+            preds = initPreds();            
             Heap<State> pq = new Heap<State>();
             foreach(State s in m_dDomain.States)
             {
@@ -224,37 +205,24 @@ namespace MarkovDecisionProcess
                     {
                         maxReward = immediateReward;
                     }
-                }
-                //pq.Enqueue(s,maxReward);
+                }                
                 pq.Insert(s, maxReward);
             }
             double maxPriority = pq.GetMaxPriority();
             while (maxPriority > dEpsilon)
             {
                 State s = pq.ExtractMax();
-                MaxValue = update(s).First;
+                cUpdates++;
+                MaxValue = update(s);
                 foreach (State sTag in preds[s])
                 {
-                    pq.IncreasePriority(sTag, gamma*MaxValue);
+                    pq.IncreasePriority(sTag, m_dDomain.gamma * MaxValue);
                 }
                 maxPriority = pq.GetMaxPriority();
             }
-
-            Dictionary<State, Double> vals = getVValues();
+            
             tsExecutionTime = DateTime.Now - dtBefore;
             Debug.WriteLine("\nFinished prioritized value iteration");
-        }
-
-        public Dictionary<State, Double> getVValues()
-        {        
-            Dictionary<State, Double> ans = new Dictionary<State, Double>();
-            foreach (State s in V.Keys)
-            {
-                if (V[s] != 0.0)
-                    ans.Add(s, V[s]);
-            }
-            return ans;
-        }
-
+        }        
     }
 }
