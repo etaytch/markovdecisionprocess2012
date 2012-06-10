@@ -8,6 +8,19 @@ using System.Windows.Forms;
 
 namespace MarkovDecisionProcess
 {
+    public class QSAPair<T, U> {
+    public QSAPair() {
+    }
+
+    public QSAPair(T first, U second) {
+        this.First = first;
+        this.Second = second;
+    }
+
+    public T First { get; set; }
+    public U Second { get; set; }
+    };
+
     class ValueFunction : Policy
     {
 
@@ -23,7 +36,7 @@ namespace MarkovDecisionProcess
         public ValueFunction(Domain d)
         {            
             m_dDomain = d;
-            gamma = 0.1;
+            gamma = 0.5;
             MaxValue = 0.0;
             MinValue = 0.0;
             bestActions = new Dictionary<State, Action>();            
@@ -41,30 +54,39 @@ namespace MarkovDecisionProcess
             return bestActions[s];
         }
 
-        public double update(State s)
+        public QSAPair<double,Action> update(State s, bool useGlobal = false, double globalReward = 0)
         {
+            QSAPair<double, Action> ans = new QSAPair<double, Action>();
             Action maxAction = null;
             double maxQsa = Double.MinValue;
             foreach (Action a in m_dDomain.Actions)
             {
-                double qsa = s.Reward(a);
+
+                double qsa;// = s.Reward(a);
+                if (useGlobal)
+                    qsa = globalReward;
+                else
+                    qsa = s.Reward(a);
                 double sig = 0.0;
                 foreach (State sTag in s.Successors(a))
                 {
                     sig += s.TransitionProbability(a, sTag) * V[sTag];
                 }
                 qsa += gamma * sig;
-                if (Math.Abs(qsa - V[s]) > maxQsa)
+                if (Math.Abs(qsa - V[s]) >= maxQsa)
                 {
                     maxQsa = Math.Abs(qsa - V[s]);
                     maxAction = a;
                 }
             }
             V[s] = maxQsa;
-            if (maxQsa > MaxValue)
-                MaxValue = maxQsa;
+            //if (maxQsa > MaxValue)
+            //    MaxValue = maxQsa;
             bestActions[s] = maxAction;
-            return MaxValue;
+            //return MaxValue;
+            ans.First = maxQsa;
+            ans.Second = maxAction;
+            return ans;
         }
 
         public void ValueIteration(double dEpsilon, out int cUpdates, out TimeSpan tsExecutionTime)
@@ -72,11 +94,13 @@ namespace MarkovDecisionProcess
             Debug.WriteLine("Starting value iteration");
             DateTime dtBefore = DateTime.Now;
             cUpdates = 0;
-
+            
+            bestActions = new Dictionary<State, Action>();
+            V = new Dictionary<State, Double>();
             MaxValue = 0.0;
             foreach (State s in m_dDomain.States)
             {
-                V[s] = 0;
+                V[s] = 0.0;
                 bestActions[s] = null;
             }
             do
@@ -84,7 +108,11 @@ namespace MarkovDecisionProcess
                 foreach (State s in m_dDomain.States)
                 {
                     cUpdates++;
-                    MaxValue = update(s);
+                    double deltaS = update(s).First;
+                    if (MaxValue < deltaS)
+                    {
+                        MaxValue = deltaS;
+                    }
                 }
             }
             while (MaxValue < dEpsilon);
@@ -94,11 +122,50 @@ namespace MarkovDecisionProcess
             Debug.WriteLine("\nFinished value iteration");
         }
 
+        public double getMaxGlobalReward()
+        {
+            double reward = double.MinValue;
+            foreach (State s in m_dDomain.States)
+            {
+                foreach (Action a in m_dDomain.Actions)
+                {
+                    double currentReward = s.Reward(a);
+                    if (reward < currentReward)
+                        reward = currentReward;
+                }
+            }
+            return reward;
+        }
+
         public void RealTimeDynamicProgramming(int cTrials, out int cUpdates, out TimeSpan tsExecutionTime)
         {
             Debug.WriteLine("Starting RTDP");
             DateTime dtBefore = DateTime.Now;
             cUpdates = 0;
+
+            bestActions = new Dictionary<State, Action>();
+            V = new Dictionary<State, Double>();
+            MaxValue = 0.0;
+            foreach (State st in m_dDomain.States)
+            {
+                V[st] = 0.0;
+                bestActions[st] = null;
+            }
+
+            double globalReward = getMaxGlobalReward();
+            State s = m_dDomain.StartState;
+            Stack<State> stack = new Stack<State>();
+            while(!m_dDomain.IsGoalState(s))
+            {
+                Action optimalAction = update(s/*, true, globalReward*/).Second;
+                stack.Push(s);
+                s = s.Apply(optimalAction);
+            }
+            while(stack.Count>0)
+            {
+                s = stack.Pop();
+                update(s);
+            }
 
             //your code here
             tsExecutionTime = DateTime.Now - dtBefore;
@@ -119,7 +186,8 @@ namespace MarkovDecisionProcess
                 {
                     foreach (State sTag in s.Successors(a))
                     {
-                        ans[sTag].Add(s);                        
+                        if(!ans[sTag].Contains(s))
+                            ans[sTag].Add(s);                        
                     }
                 }
             }
@@ -127,41 +195,65 @@ namespace MarkovDecisionProcess
             return ans;
         }
 
-        public void PrioritizedValueIteration(double dEpsilon, out int cUpdates, out TimeSpan tsExecutionTime)
+        public void PrioeritizedValueIteration(double dEpsilon, out int cUpdates, out TimeSpan tsExecutionTime)
         {
             Debug.WriteLine("Starting prioritized value iteration");
             DateTime dtBefore = DateTime.Now;
             cUpdates = 0;
 
-            MaxValue = 0.0;
+            MaxValue = 0.0;                        
+            bestActions = new Dictionary<State, Action>();
+            V = new Dictionary<State, Double>();
+            foreach (State s in m_dDomain.States)
+            {
+                V[s] = 0.0;
+                bestActions[s] = null;
+            }
+
+
             preds = initPreds();
-            PriorityQueue<State, double> pq = new PriorityQueue<State, double>();
+            //PriorityQueue<State, double> pq = new PriorityQueue<State, double>();
+            Heap<State> pq = new Heap<State>();
             foreach(State s in m_dDomain.States)
             {
-                double maxReward=0.0;
+                double maxReward=Double.MinValue;
                 foreach(Action a in m_dDomain.Actions)
                 {
-                    if(maxReward<s.Reward(a))
+                    double immediateReward = s.Reward(a);                    
+                    if (maxReward < immediateReward)
                     {
-                        maxReward=s.Reward(a);
+                        maxReward = immediateReward;
                     }
                 }
-                pq.Enqueue(s,maxReward);
+                //pq.Enqueue(s,maxReward);
+                pq.Insert(s, maxReward);
             }
-
-            while (pq.topPriority()>dEpsilon)
+            double maxPriority = pq.GetMaxPriority();
+            while (maxPriority > dEpsilon)
             {
-                State s = pq.Dequeue();
-                MaxValue = update(s);
+                State s = pq.ExtractMax();
+                MaxValue = update(s).First;
                 foreach (State sTag in preds[s])
-                { 
-
+                {
+                    pq.IncreasePriority(sTag, gamma*MaxValue);
                 }
+                maxPriority = pq.GetMaxPriority();
             }
 
-
+            Dictionary<State, Double> vals = getVValues();
             tsExecutionTime = DateTime.Now - dtBefore;
             Debug.WriteLine("\nFinished prioritized value iteration");
+        }
+
+        public Dictionary<State, Double> getVValues()
+        {        
+            Dictionary<State, Double> ans = new Dictionary<State, Double>();
+            foreach (State s in V.Keys)
+            {
+                if (V[s] != 0.0)
+                    ans.Add(s, V[s]);
+            }
+            return ans;
         }
 
     }

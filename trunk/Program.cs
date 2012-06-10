@@ -30,17 +30,17 @@ namespace MarkovDecisionProcess
 
             form.StateValues = vi3;
             vi3.RealTimeDynamicProgramming(100, out cUpdates3, out ts3);
+            
+            //form.StateValues = vi1;
+            //vi1.ValueIteration(0.5, out cUpdates1, out ts1);
 
-            form.StateValues = vi1;
-            vi1.ValueIteration(0.5, out cUpdates1, out ts1);
-
-            form.StateValues = vi2;
-            vi2.PrioritizedValueIteration(0.5, out cUpdates2, out ts2);
+            //form.StateValues = vi2;
+            //vi2.PrioeritizedValueIteration(0.5, out cUpdates2, out ts2);            
             rc.DrawRace(vi3, form);
 
-            double dADR1 = rc.ComputeAverageDiscountedReward(vi1, 1000, 100);
-            double dADR2 = rc.ComputeAverageDiscountedReward(vi2, 1000, 100);
-            double dADR3 = rc.ComputeAverageDiscountedReward(vi3, 1000, 100);
+           // double dADR1 = rc.ComputeAverageDiscountedReward(vi1, 1000, 100);
+            //double dADR2 = rc.ComputeAverageDiscountedReward(vi2, 1000, 100);
+           // double dADR3 = rc.ComputeAverageDiscountedReward(vi3, 1000, 100);
 
             Debug.Close();
         }

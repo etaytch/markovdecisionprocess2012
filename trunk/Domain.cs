@@ -40,6 +40,8 @@ namespace MarkovDecisionProcess
                     s = s.Successors(a).ElementAt(position);
                      */
                     s=s.Apply(a);
+                    if (s == null)
+                        break;
                 }
                 for (int k = 0; k < i;k++ )
                 {
